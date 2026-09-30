@@ -19,6 +19,7 @@ public class Skill {
     private String name;
 
     private String description;
+
     @ManyToOne
     @JoinColumn(name = "category_id")
     private Category category;
@@ -45,5 +46,13 @@ public class Skill {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Category getCategory() {
+        return category;
+    }
+
+    public void setCategory(Category category) {
+        this.category = category;
     }
 }
