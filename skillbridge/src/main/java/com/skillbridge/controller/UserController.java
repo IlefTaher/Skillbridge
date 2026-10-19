@@ -1,13 +1,12 @@
-
 package com.skillbridge.controller;
 
+import com.skillbridge.dtos.UserResponse;
 import com.skillbridge.entity.User;
 import com.skillbridge.services.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,13 +20,13 @@ import java.util.List;
  * Elle ne contient AUCUNE logique métier : elle reçoit la requête HTTP,
  * appelle le service, et renvoie la réponse en JSON.
  *
- * @RestController = @Controller + @ResponseBody :
- *   Spring transforme automatiquement les objets Java retournés en JSON.
- *
- * @RequestMapping("/api/users") : préfixe commun de toutes les routes ci-dessous.
+ * Zone ADMIN : le chemin /api/v1/admin/** est réservé au rôle ADMIN
+ * (règle définie dans SecurityConfig).
+ * La création d'utilisateur ne passe plus ici : elle se fait par
+ * POST /api/v1/auth/register (mot de passe chiffré, rôle contrôlé).
  */
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/v1/admin/users")   // avant : "/api/users"
 public class UserController {
 
     // Le controller ne parle qu'au SERVICE, jamais directement au Repository.
@@ -39,46 +38,36 @@ public class UserController {
     }
 
     /**
-     * POST /api/users
-     * @RequestBody : Spring convertit le JSON reçu en objet Java User.
-     * @ResponseStatus(CREATED) : renvoie le code HTTP 201 (créé) au lieu de 200.
-     */
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public User createUser(@RequestBody User user) {
-        return userService.createUser(user);
-    }
-
-    /**
-     * GET /api/users
-     * Retourne la liste de tous les utilisateurs.
+     * GET /api/v1/admin/users
+     * Retourne la liste de tous les utilisateurs, sans mot de passe (UserResponse).
      */
     @GetMapping
-    public List<User> getAllUsers() {
-        return userService.getAllUsers();
+    public List<UserResponse> getAllUsers() {
+        return userService.getAllUsers().stream()
+                .map(UserResponse::from)
+                .toList();
     }
 
     /**
-     * GET /api/users/{id}
+     * GET /api/v1/admin/users/{id}
      * @PathVariable : récupère la valeur {id} présente dans l'URL.
-     * Exemple : GET /api/users/3 -> id = 3
      */
     @GetMapping("/{id}")
-    public User getUserById(@PathVariable Long id) {
-        return userService.getUserById(id);
+    public UserResponse getUserById(@PathVariable Long id) {
+        return UserResponse.from(userService.getUserById(id));
     }
 
     /**
-     * PUT /api/users/{id}
+     * PUT /api/v1/admin/users/{id}
      * Modifie l'utilisateur d'id {id} avec les données du JSON reçu.
      */
     @PutMapping("/{id}")
-    public User updateUser(@PathVariable Long id, @RequestBody User user) {
-        return userService.updateUser(id, user);
+    public UserResponse updateUser(@PathVariable Long id, @RequestBody User user) {
+        return UserResponse.from(userService.updateUser(id, user));
     }
 
     /**
-     * DELETE /api/users/{id}
+     * DELETE /api/v1/admin/users/{id}
      * @ResponseStatus(NO_CONTENT) : renvoie 204 (succès, pas de corps de réponse).
      */
     @DeleteMapping("/{id}")
