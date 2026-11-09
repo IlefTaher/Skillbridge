@@ -1,7 +1,12 @@
 package com.skillbridge.services;
 
+import com.skillbridge.dtos.CategoryRequest;
+import com.skillbridge.dtos.CategoryResponse;
 import com.skillbridge.entity.Category;
+import com.skillbridge.exception.ConflictException;
+import com.skillbridge.exception.NotFoundException;
 import com.skillbridge.repository.CategoryRepository;
+import com.skillbridge.repository.SkillRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,42 +16,67 @@ import java.util.List;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final SkillRepository skillRepository;
 
-    public CategoryService(CategoryRepository categoryRepository) {
+    public CategoryService(CategoryRepository categoryRepository, SkillRepository skillRepository) {
         this.categoryRepository = categoryRepository;
+        this.skillRepository = skillRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<CategoryResponse> findAll() {
+        return categoryRepository.findAllByOrderByNameAsc().stream()
+                .map(CategoryResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CategoryResponse findById(Long id) {
+        return CategoryResponse.from(getOrThrow(id));
     }
 
     @Transactional
-    public Category createCategory(Category category) {
-        // Règle métier : pas deux catégories avec le même nom
-        if (categoryRepository.existsByName(category.getName())) {
-            throw new IllegalArgumentException("Cette catégorie existe déjà");
+    public CategoryResponse create(CategoryRequest request) {
+        String name = request.name().trim();
+
+        // R-CAT-01 : nom unique
+        if (categoryRepository.existsByNameIgnoreCase(name)) {
+            throw new ConflictException("Une catégorie porte déjà ce nom");
         }
-        return categoryRepository.save(category);
+
+        Category category = new Category();
+        category.setName(name);
+        return CategoryResponse.from(categoryRepository.save(category));
     }
 
-    @Transactional(readOnly = true)
-    public List<Category> getAllCategories() {
-        return categoryRepository.findAll();
+    @Transactional
+    public CategoryResponse update(Long id, CategoryRequest request) {
+        Category category = getOrThrow(id);
+        String name = request.name().trim();
+
+        // R-CAT-01 : on ignore la catégorie elle-même (on peut la « renommer » avec le même nom)
+        if (categoryRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
+            throw new ConflictException("Une catégorie porte déjà ce nom");
+        }
+
+        category.setName(name);
+        return CategoryResponse.from(categoryRepository.save(category));
     }
 
-    @Transactional(readOnly = true)
-    public Category getCategoryById(Long id) {
+    @Transactional
+    public void delete(Long id) {
+        Category category = getOrThrow(id);
+
+        // R-CAT-02 : on ne supprime pas une catégorie qui contient des compétences
+        if (skillRepository.existsByCategoryId(id)) {
+            throw new ConflictException("Cette catégorie contient encore des compétences");
+        }
+
+        categoryRepository.delete(category);
+    }
+
+    private Category getOrThrow(Long id) {
         return categoryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Catégorie introuvable : " + id));
-    }
-
-    @Transactional
-    public Category updateCategory(Long id, Category updatedCategory) {
-        Category existing = getCategoryById(id);
-        existing.setName(updatedCategory.getName());
-        existing.setDescription(updatedCategory.getDescription());
-        return categoryRepository.save(existing);
-    }
-
-    @Transactional
-    public void deleteCategory(Long id) {
-        Category existing = getCategoryById(id);
-        categoryRepository.delete(existing);
+                .orElseThrow(() -> new NotFoundException("Catégorie introuvable"));
     }
 }
