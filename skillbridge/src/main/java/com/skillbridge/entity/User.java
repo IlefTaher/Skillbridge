@@ -1,5 +1,5 @@
 package com.skillbridge.entity;
-
+import java.util.*;
 import jakarta.persistence.*;
 
 @Entity
@@ -33,7 +33,13 @@ public class User {
 
     private String university;
 
-    private String skills;
+    @ManyToMany
+    @JoinTable(
+            name = "mentor_skills",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "skill_id"))
+    private Set<Skill> skills = new HashSet<>();
+
 
     private boolean enabled = true;
 
@@ -101,11 +107,11 @@ public class User {
         this.university = university;
     }
 
-    public String getSkills() {
+    public Set<Skill> getSkills() {
         return skills;
     }
 
-    public void setSkills(String skills) {
+    public void setSkills(Set<Skill> skills) {
         this.skills = skills;
     }
 
